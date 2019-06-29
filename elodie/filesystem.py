@@ -80,7 +80,7 @@ class FileSystem(object):
 
         return False
 
-    def get_all_files(self, path, extensions=None):
+    def get_all_files(self, path, extensions=None, ignored_dirs=()):
         """Recursively get all files which match a path and extension.
 
         :param str path string: Path to start recursive file listing
@@ -94,7 +94,11 @@ class FileSystem(object):
             for cls in subclasses:
                 extensions.update(cls.extensions)
 
+        ignored_dirs_lookup={key: True for key in ignored_dirs}
+
         for dirname, dirnames, filenames in os.walk(path):
+            dirnames[:] = [d for d in dirnames if not ignored_dirs_lookup.get(d)]
+
             for filename in filenames:
                 # If file extension is in `extensions` then append to the list
                 if os.path.splitext(filename)[1][1:].lower() in extensions:

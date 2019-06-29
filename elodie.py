@@ -84,10 +84,12 @@ def import_file(_file, destination, album_from_folder, trash, allow_duplicates):
               help='After copying files, move the old files to the trash.')
 @click.option('--allow-duplicates', default=False, is_flag=True,
               help='Import the file even if it\'s already been imported.')
+@click.option('--ignored-dirs', '-i', multiple=True,
+              help='Dir name which must be skipped.')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
 @click.argument('paths', nargs=-1, type=click.Path())
-def _import(destination, source, file, album_from_folder, trash, allow_duplicates, debug, paths):
+def _import(destination, source, file, album_from_folder, trash, allow_duplicates, ignored_dirs, debug, paths):
     """Import files or directories by reading their EXIF and organizing them accordingly.
     """
     constants.debug = debug
@@ -107,7 +109,7 @@ def _import(destination, source, file, album_from_folder, trash, allow_duplicate
     for path in paths:
         path = os.path.expanduser(path)
         if os.path.isdir(path):
-            files.update(FILESYSTEM.get_all_files(path, None))
+            files.update(FILESYSTEM.get_all_files(path, extensions=None, ignored_dirs=ignored_dirs))
         else:
             files.add(path)
 
@@ -126,9 +128,11 @@ def _import(destination, source, file, album_from_folder, trash, allow_duplicate
 @click.command('generate-db')
 @click.option('--source', type=click.Path(file_okay=False),
               required=True, help='Source of your photo library.')
+@click.option('--ignored-dirs', '-i', multiple=True,
+              help='Dir name which must be skipped.')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
-def _generate_db(source, debug):
+def _generate_db(source, debug, ignored_dirs):
     """Regenerate the hash.json database which contains all of the sha256 signatures of media files. The hash.json file is located at ~/.elodie/.
     """
     constants.debug = debug
@@ -143,7 +147,7 @@ def _generate_db(source, debug):
     db.backup_hash_db()
     db.reset_hash_db()
 
-    for current_file in FILESYSTEM.get_all_files(source):
+    for current_file in FILESYSTEM.get_all_files(source, ignored_dirs=ignored_dirs):
         result.append((current_file, True))
         db.add_hash(db.checksum(current_file), current_file)
         log.progress()
@@ -219,11 +223,13 @@ def update_time(media, file_path, time_string):
 @click.option('--time', help=('Update the image time. Time should be in '
                               'YYYY-mm-dd hh:ii:ss or YYYY-mm-dd format.'))
 @click.option('--title', help='Update the image title.')
+@click.option('--ignored-dirs', '-i', multiple=True,
+              help='Dir name which must be skipped.')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
 @click.argument('paths', nargs=-1,
                 required=True)
-def _update(album, location, time, title, paths, debug):
+def _update(album, location, time, title, ignored_dirs, debug, paths):
     """Update a file's EXIF. Automatically modifies the file's location and file name accordingly.
     """
     constants.debug = debug
@@ -234,7 +240,7 @@ def _update(album, location, time, title, paths, debug):
     for path in paths:
         path = os.path.expanduser(path)
         if os.path.isdir(path):
-            files.update(FILESYSTEM.get_all_files(path, None))
+            files.update(FILESYSTEM.get_all_files(path, extensions=None, ignored_dirs=ignored_dirs))
         else:
             files.add(path)
 
