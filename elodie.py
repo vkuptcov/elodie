@@ -151,9 +151,11 @@ def _import(destination, source, file, album_from_folder, trash, allow_duplicate
 @click.command('generate-db')
 @click.option('--source', type=click.Path(file_okay=False),
               required=True, help='Source of your photo library.')
+@click.option('--exclude-regex', default=set(), multiple=True,
+              help='Regular expression for directories or files to exclude.')
 @click.option('--debug', default=False, is_flag=True,
               help='Override the value in constants.py with True.')
-def _generate_db(source, debug):
+def _generate_db(source, exclude_regex, debug):
     """Regenerate the hash.json database which contains all of the sha256 signatures of media files. The hash.json file is located at ~/.elodie/.
     """
     constants.debug = debug
@@ -163,15 +165,25 @@ def _generate_db(source, debug):
     if not os.path.isdir(source):
         log.error('Source is not a valid directory %s' % source)
         sys.exit(1)
-        
+
+
+    # if no exclude list was passed in we check if there's a config
+    if len(exclude_regex) == 0:
+        config = load_config()
+        if 'Exclusions' in config:
+            exclude_regex = [value for key, value in config.items('Exclusions')]
+
+    exclude_regex_list = set(exclude_regex)
+
     db = Db()
     db.backup_hash_db()
     db.reset_hash_db()
 
     for current_file in FILESYSTEM.get_all_files(source):
-        result.append((current_file, True))
-        db.add_hash(db.checksum(current_file), current_file)
-        log.progress()
+        if not FILESYSTEM.should_exclude(current_file, exclude_regex_list, True):
+            result.append((current_file, True))
+            db.add_hash(db.checksum(current_file), current_file)
+            log.progress()
     
     db.update_hash_db()
     log.progress('', True)
